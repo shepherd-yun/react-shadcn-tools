@@ -5,13 +5,17 @@ import { useAuth } from "@/lib/auth";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { copyToClipboard } from "../copyUtil";
+import { pasteFiles, withScreenshotName } from "./clipboardPaste";
+
+const MAX_FILE_BYTES = 200 * 1024 * 1024;
 
 interface ClipboardItem {
   id: string;
   type: "TEXT" | "IMAGE" | "FILE";
   content: string | null;
+  downloadUrl: string | null;
   fileName: string | null;
-  fileSize: number | null;
+  fileSize: string | null;
   mimeType: string | null;
   createdAt: string;
 }
@@ -155,6 +159,7 @@ function EditableItem({
               onChange={(e) => setEditContent(e.target.value)}
               rows={3}
               autoFocus
+              data-clipboard-edit
               className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-[14px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40"
             />
             <div className="flex items-center gap-2 justify-end">
@@ -214,7 +219,7 @@ function EditableItem({
               <p className="text-[14px]">{item.fileName}</p>
               {item.fileSize && (
                 <p className="text-[13px] text-muted-foreground">
-                  {formatSize(item.fileSize)}
+                  {formatSize(Number(item.fileSize))}
                 </p>
               )}
             </div>
@@ -266,21 +271,86 @@ export default function ClipboardTool() {
   const [items, setItems] = useState<ClipboardItem[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    if (isAuthenticated) fetchItems();
-  }, [isAuthenticated]);
-
-  const fetchItems = async () => {
+  const fetchItems = async (silent = false) => {
     try {
       const data = await api.get<unknown, ClipboardItem[]>("/clipboard");
       setItems(data || []);
     } catch {
-      toast.error("获取粘贴板内容失败");
+      if (!silent) toast.error("获取粘贴板内容失败");
     }
   };
+
+  const uploadFile = async (file: globalThis.File) => {
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error(`${file.name} 超过 200 MB，已跳过`);
+      return;
+    }
+    setUploading((n) => n + 1);
+    try {
+      const { url: presignedUrl, key, headers } = await api.get<
+        unknown,
+        { url: string; key: string; headers: Record<string, string> }
+      >("/clipboard/presign", { params: { fileName: file.name, contentType: file.type } });
+
+      const put = await fetch(presignedUrl, { method: "PUT", body: file, headers });
+      if (!put.ok) throw new Error(`上传失败（HTTP ${put.status}）`);
+
+      const isImage = file.type.startsWith("image/");
+      await api.post("/clipboard", {
+        type: isImage ? "IMAGE" : "FILE",
+        content: key,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type || "application/octet-stream",
+      });
+
+      toast.success("上传成功");
+      fetchItems();
+    } catch (err: any) {
+      toast.error(err.message || "上传失败");
+    } finally {
+      setUploading((n) => n - 1);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchItems();
+    // 切回页面时刷新：在另一台设备放的内容能马上看到
+    const onFocus = () => fetchItems(true);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest("[data-clipboard-edit]") || !e.clipboardData) return;
+
+      const files = pasteFiles(e.clipboardData);
+      if (files.length > 0) {
+        e.preventDefault();
+        const now = new Date();
+        files.forEach((f) => uploadFile(withScreenshotName(f, now)));
+        return;
+      }
+      // 焦点在输入控件里就让浏览器正常粘贴；否则填进主输入框，不自动保存
+      if (target?.closest("input, textarea, [contenteditable]")) return;
+      const pasted = e.clipboardData.getData("text/plain");
+      if (pasted) {
+        e.preventDefault();
+        setText((prev) => prev + pasted);
+        textRef.current?.focus();
+      }
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [isAuthenticated]);
 
   const saveText = async () => {
     if (!text.trim()) {
@@ -300,41 +370,8 @@ export default function ClipboardTool() {
     }
   };
 
-  const uploadFile = async (file: globalThis.File) => {
-    setUploading(true);
-    try {
-      const { url: presignedUrl, key } = await api.get<
-        unknown,
-        { url: string; key: string }
-      >("/upload/presign", { params: { fileName: file.name } });
-
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": "application/octet-stream" },
-      });
-
-      const isImage = file.type.startsWith("image/");
-      await api.post("/clipboard", {
-        type: isImage ? "IMAGE" : "FILE",
-        content: key,
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
-      });
-
-      toast.success("上传成功");
-      fetchItems();
-    } catch (err: any) {
-      toast.error(err.message || "上传失败");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) uploadFile(file);
+    Array.from(e.target.files ?? []).forEach(uploadFile);
     e.target.value = "";
   };
 
@@ -365,10 +402,10 @@ export default function ClipboardTool() {
     if (item.type === "TEXT") {
       copyToClipboard(item.content || "");
       toast.success("已复制到剪贴板");
-    } else if (item.content) {
+    } else if (item.downloadUrl) {
       const iframe = document.createElement("iframe");
       iframe.style.display = "none";
-      iframe.src = item.content;
+      iframe.src = item.downloadUrl;
       document.body.appendChild(iframe);
       setTimeout(() => document.body.removeChild(iframe), 10000);
     }
@@ -387,6 +424,7 @@ export default function ClipboardTool() {
           {/* Input area */}
           <div className="space-y-3">
             <textarea
+              ref={textRef}
               placeholder="输入要保存的文字..."
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -404,14 +442,15 @@ export default function ClipboardTool() {
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading > 0}
                 className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border py-2.5 text-[14px] font-medium text-foreground transition-colors hover:bg-muted/50 disabled:opacity-60"
               >
                 <Upload className="h-4 w-4" />
-                {uploading ? "上传中..." : "上传文件"}
+                {uploading > 0 ? "上传中..." : "上传文件"}
               </button>
-              <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
             </div>
+            <p className="text-[12px] text-muted-foreground/70">可直接 ⌘V / Ctrl+V 粘贴截图</p>
           </div>
 
           {/* Items list */}
