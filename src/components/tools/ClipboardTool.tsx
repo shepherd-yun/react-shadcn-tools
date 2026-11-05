@@ -130,6 +130,8 @@ function EditableItem({
     try {
       await onUpdate(item.id, editContent);
       setEditing(false);
+    } catch {
+      // onUpdate 已提示错误；留在编辑状态，写好的内容不丢
     } finally {
       setSaving(false);
     }
@@ -321,9 +323,27 @@ export default function ClipboardTool() {
     if (!isAuthenticated) return;
     fetchItems();
     // 切回页面时刷新：在另一台设备放的内容能马上看到
-    const onFocus = () => fetchItems(true);
+    // 合盖唤醒通常只触发 visibilitychange，不触发 focus
+    const focusMain = () => {
+      if (window.matchMedia("(pointer: fine)").matches && document.activeElement === document.body) {
+        textRef.current?.focus();
+      }
+    };
+    const onFocus = () => {
+      fetchItems(true);
+      focusMain();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") onFocus();
+    };
+    // 部分浏览器（如 Safari）焦点不在可编辑元素上时不派发 paste：桌面端让主输入框一直接住焦点
+    focusMain();
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -393,8 +413,9 @@ export default function ClipboardTool() {
         prev.map((i) => (i.id === id ? { ...i, content } : i))
       );
       toast.success("已保存");
-    } catch {
-      toast.error("保存失败");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+      throw err;
     }
   };
 
@@ -402,12 +423,27 @@ export default function ClipboardTool() {
     if (item.type === "TEXT") {
       copyToClipboard(item.content || "");
       toast.success("已复制到剪贴板");
-    } else if (item.downloadUrl) {
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = item.downloadUrl;
-      document.body.appendChild(iframe);
-      setTimeout(() => document.body.removeChild(iframe), 10000);
+    } else {
+      // 列表可能开了很久，签名地址已过期：每次都取新地址
+      let fresh: ClipboardItem[];
+      try {
+        fresh = await api.get<unknown, ClipboardItem[]>("/clipboard");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "获取下载地址失败");
+        return;
+      }
+      setItems(fresh);
+      const url = fresh.find((i) => i.id === item.id)?.downloadUrl;
+      if (!url) {
+        toast.error("这条内容已被删除");
+        return;
+      }
+      // 响应带 attachment，页面不会跳走；隐藏 iframe 在手机浏览器上不一定能下载
+      const a = document.createElement("a");
+      a.href = url;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
   };
 

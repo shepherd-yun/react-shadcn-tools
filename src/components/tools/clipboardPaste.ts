@@ -1,9 +1,10 @@
 /**
- * 从粘贴事件里取要上传的文件。带 text/html 时按文字处理：
- * 从 Word、Excel 复制会同时带上文字和一张渲染出来的图片，用户要的是文字。
+ * 从粘贴事件里取要上传的文件。同时带 HTML 和纯文字时按文字处理：
+ * 从 Word、Excel 复制会带上文字和一张渲染出来的图片，用户要的是文字。
+ * 没有纯文字时（网页上「复制图片」只带 <img> 的 HTML 和图片本身）仍然上传。
  */
 export function pasteFiles(data: DataTransfer): File[] {
-  if (data.types.includes("text/html")) return [];
+  if (data.types.includes("text/html") && data.getData("text/plain").trim()) return [];
   return Array.from(data.files);
 }
 
