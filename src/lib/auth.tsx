@@ -1,18 +1,16 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import api from "./api";
+import api, { clearAuthStorage, storeTokens } from "./api";
 
 export interface User {
   id: string;
-  username: string;
   name: string;
-  role: string;
-  avatar: string | null;
+  owner: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -31,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (token && !user) {
       api
-        .get<unknown, User>("/auth/profile")
+        .get<unknown, User>("/me")
         .then((data) => {
           setUser(data);
           localStorage.setItem("user", JSON.stringify(data));
@@ -39,28 +37,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .catch(() => {
           setToken(null);
           setUser(null);
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          clearAuthStorage();
         });
     }
   }, [token, user]);
 
-  const login = async (username: string, password: string) => {
-    const data = await api.post<unknown, { access_token: string; user: User }>("/auth/login", {
-      username,
-      password,
-    });
-    setToken(data.access_token);
-    setUser(data.user);
-    localStorage.setItem("token", data.access_token);
-    localStorage.setItem("user", JSON.stringify(data.user));
+  const login = async (password: string) => {
+    const pair = await api.post<unknown, { accessToken: string; refreshToken: string }>(
+      "/auth/owner-login",
+      { password },
+    );
+    // 先存 token：下面的 /me 由拦截器带上它
+    storeTokens(pair);
+    const me = await api.get<unknown, User>("/me");
+    localStorage.setItem("user", JSON.stringify(me));
+    setUser(me);
+    setToken(pair.accessToken);
   };
 
   const logout = () => {
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (refreshToken) {
+      api.post("/auth/logout", { refreshToken }).catch(() => {});
+    }
+    clearAuthStorage();
     setToken(null);
     setUser(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
   };
 
   return (

@@ -5,7 +5,6 @@ import { Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { login, isAuthenticated } = useAuth();
@@ -20,13 +19,13 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password) {
-      toast.error("请输入用户名和密码");
+    if (!password) {
+      toast.error("请输入站长密码");
       return;
     }
     setLoading(true);
     try {
-      await login(username, password);
+      await login(password);
       toast.success("登录成功");
       navigate(redirect, { replace: true });
     } catch (err: any) {
@@ -48,18 +47,11 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
-            type="text"
-            placeholder="用户名"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoFocus
-            className="w-full rounded-xl border border-border bg-muted/30 px-4 py-3 text-[15px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background"
-          />
-          <input
             type="password"
-            placeholder="密码"
+            placeholder="站长密码"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoFocus
             className="w-full rounded-xl border border-border bg-muted/30 px-4 py-3 text-[15px] outline-none transition-colors placeholder:text-muted-foreground/50 focus:border-primary/40 focus:bg-background"
           />
           <button

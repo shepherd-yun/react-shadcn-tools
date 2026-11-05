@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router";
-import { LogIn, LogOut, User } from "lucide-react";
+import { LogIn, LogOut } from "lucide-react";
 
 export function UserAvatar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -31,7 +31,7 @@ export function UserAvatar() {
     );
   }
 
-  const initial = (user?.name || user?.username || "U").charAt(0).toUpperCase();
+  const initial = (user?.name || "U").charAt(0).toUpperCase();
 
   return (
     <div ref={ref} className="relative">
@@ -39,39 +39,20 @@ export function UserAvatar() {
         onClick={() => setOpen(!open)}
         className="flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-primary text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
       >
-        {user?.avatar ? (
-          <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-        ) : (
-          initial
-        )}
+        {initial}
       </button>
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border bg-card py-1 shadow-lg z-50">
           <div className="border-b border-border px-4 py-3 flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-[12px] font-medium text-primary-foreground">
-              {user?.avatar ? (
-                <img src={user.avatar} alt={user?.name} className="h-full w-full object-cover" />
-              ) : (
-                initial
-              )}
+              {initial}
             </div>
             <div className="min-w-0">
               <p className="text-[14px] font-medium truncate">{user?.name}</p>
-              <p className="text-[12px] text-muted-foreground truncate">@{user?.username}</p>
             </div>
           </div>
           <div className="py-1">
-            <button
-              onClick={() => {
-                setOpen(false);
-                navigate("/login");
-              }}
-              className="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <User className="h-4 w-4" />
-              个人信息
-            </button>
             <button
               onClick={() => {
                 logout();
