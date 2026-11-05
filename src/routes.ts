@@ -15,7 +15,7 @@ import DiffTool from "./components/tools/DiffTool";
 import TranscriptTool from "./components/tools/transcript/TranscriptTool";
 import LoginPage from "./components/LoginPage";
 
-import { CaseConverterRedirect } from "./components/CaseConverterRedirect";
+import { ClipboardRedirect } from "./components/ClipboardRedirect";
 
 export const router = createBrowserRouter([
   {
@@ -26,9 +26,9 @@ export const router = createBrowserRouter([
     path: "/",
     Component: Layout,
     children: [
-      { index: true, Component: CaseConverterTool },
-      { path: "case-converter", Component: CaseConverterRedirect },
-      { path: "clipboard", Component: ClipboardTool },
+      { index: true, Component: ClipboardTool },
+      { path: "case-converter", Component: CaseConverterTool },
+      { path: "clipboard", Component: ClipboardRedirect },
       { path: "timestamp", Component: TimestampTool },
       { path: "url", Component: UrlTool },
       { path: "qrcode", Component: QrCodeTool },

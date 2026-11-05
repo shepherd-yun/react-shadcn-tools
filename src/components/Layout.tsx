@@ -6,8 +6,8 @@ import { useState } from "react";
 import { UserAvatar } from "./UserAvatar";
 
 const navItems = [
-  { to: "/", icon: CaseSensitive, label: "命名转换", end: true },
-  { to: "/clipboard", icon: Clipboard, label: "网络粘贴板" },
+  { to: "/", icon: Clipboard, label: "网络粘贴板", end: true },
+  { to: "/case-converter", icon: CaseSensitive, label: "命名转换" },
   { to: "/timestamp", icon: Clock, label: "时间戳转换" },
   { to: "/url", icon: LinkIcon, label: "URL 编解码" },
   { to: "/qrcode", icon: QrCode, label: "二维码生成" },
