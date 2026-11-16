@@ -1,7 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyRound } from "lucide-react";
 import { ToolPage } from "../ToolPage";
 import { CopyButton } from "../CopyButton";
+import { ClickToCopy } from "../ClickToCopy";
+import { formatDuration, formatLocal, formatRelative } from "@/lib/time";
+
+/** JWT 标准中以秒级 Unix 时间戳表示的字段 */
+const TIME_CLAIMS: { key: string; label: string }[] = [
+  { key: "iat", label: "签发时间" },
+  { key: "nbf", label: "生效时间" },
+  { key: "exp", label: "过期时间" },
+  { key: "auth_time", label: "认证时间" },
+];
+
+function claimDate(v: unknown): Date | null {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  const d = new Date(v * 1000);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 function decodeJwt(token: string) {
   const parts = token.split(".");
@@ -17,6 +33,14 @@ export default function JwtTool() {
   const [input, setInput] = useState("");
   const [result, setResult] = useState<{ header: Record<string, unknown>; payload: Record<string, unknown>; signature: string } | null>(null);
   const [error, setError] = useState("");
+  const [now, setNow] = useState(() => Date.now());
+
+  // 有解析结果时每秒刷新，让「多久后过期」和过期状态保持实时
+  useEffect(() => {
+    if (!result) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [result]);
 
   const parse = (text: string) => {
     setInput(text);
@@ -33,11 +57,47 @@ export default function JwtTool() {
   const renderExpiry = () => {
     if (!result?.payload?.exp) return null;
     const exp = new Date((result.payload.exp as number) * 1000);
-    const expired = exp < new Date();
+    const expired = exp.getTime() < now;
     return (
       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] ${expired ? "bg-destructive/10 text-destructive" : "bg-emerald-50 text-emerald-600"}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${expired ? "bg-destructive" : "bg-emerald-500"}`} />
-        {expired ? "已过期" : "未过期"} · {exp.toLocaleString("zh-CN")}
+        {expired ? "已过期" : "未过期"} · {formatLocal(exp)}
+      </div>
+    );
+  };
+
+  const renderTimeClaims = () => {
+    if (!result) return null;
+    const rows = TIME_CLAIMS.flatMap(({ key, label }) => {
+      const d = claimDate(result.payload[key]);
+      return d ? [{ key, label, raw: result.payload[key] as number, d }] : [];
+    });
+    if (rows.length === 0) return null;
+    const iat = claimDate(result.payload.iat);
+    const exp = claimDate(result.payload.exp);
+    return (
+      <div className="space-y-2">
+        <span className="text-[12px] text-muted-foreground">时间字段</span>
+        <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
+          {rows.map(({ key, label, raw, d }) => (
+            <ClickToCopy key={key} text={formatLocal(d)} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-4 py-2.5 hover:bg-muted/40">
+              <span className="w-[88px] shrink-0 text-[13px]">
+                <span className="font-mono">{key}</span>
+                <span className="text-muted-foreground text-[12px] ml-1.5">{label}</span>
+              </span>
+              <span className="text-[14px] font-mono tabular-nums">{formatLocal(d)}</span>
+              <span className="text-[12px] text-muted-foreground tabular-nums">{formatRelative(d, now)}</span>
+              <span className="ml-auto text-[12px] text-muted-foreground/70 font-mono tabular-nums">{raw}</span>
+            </ClickToCopy>
+          ))}
+          {iat && exp && (
+            <div className="flex flex-wrap items-baseline gap-x-3 px-4 py-2.5 bg-muted/20">
+              <span className="w-[88px] shrink-0 text-[12px] text-muted-foreground">有效期</span>
+              <span className="text-[14px] tabular-nums">{formatDuration(exp.getTime() - iat.getTime())}</span>
+              <span className="text-[12px] text-muted-foreground">exp − iat</span>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -59,6 +119,7 @@ export default function JwtTool() {
       {result && (
         <div className="space-y-4">
           {renderExpiry()}
+          {renderTimeClaims()}
           {[
             { label: "Header", data: result.header },
             { label: "Payload", data: result.payload },
