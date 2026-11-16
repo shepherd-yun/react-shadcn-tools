@@ -70,7 +70,7 @@ export default function JwtTool() {
     if (!result) return null;
     const rows = TIME_CLAIMS.flatMap(({ key, label }) => {
       const d = claimDate(result.payload[key]);
-      return d ? [{ key, label, raw: result.payload[key] as number, d }] : [];
+      return d ? [{ key, label, d }] : [];
     });
     if (rows.length === 0) return null;
     const iat = claimDate(result.payload.iat);
@@ -79,22 +79,21 @@ export default function JwtTool() {
       <div className="space-y-2">
         <span className="text-[12px] text-muted-foreground">时间字段</span>
         <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
-          {rows.map(({ key, label, raw, d }) => (
+          {rows.map(({ key, label, d }) => (
             <ClickToCopy key={key} text={formatLocal(d)} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-4 py-2.5 hover:bg-muted/40">
               <span className="w-[88px] shrink-0 text-[13px]">
                 <span className="font-mono">{key}</span>
                 <span className="text-muted-foreground text-[12px] ml-1.5">{label}</span>
               </span>
               <span className="text-[14px] font-mono tabular-nums">{formatLocal(d)}</span>
-              <span className="text-[12px] text-muted-foreground tabular-nums">{formatRelative(d, now)}</span>
-              <span className="ml-auto text-[12px] text-muted-foreground/70 font-mono tabular-nums">{raw}</span>
+              <span className="ml-auto text-[12px] text-muted-foreground tabular-nums">{formatRelative(d, now)}</span>
             </ClickToCopy>
           ))}
           {iat && exp && (
             <div className="flex flex-wrap items-baseline gap-x-3 px-4 py-2.5 bg-muted/20">
               <span className="w-[88px] shrink-0 text-[12px] text-muted-foreground">有效期</span>
               <span className="text-[14px] tabular-nums">{formatDuration(exp.getTime() - iat.getTime())}</span>
-              <span className="text-[12px] text-muted-foreground">exp − iat</span>
+              <span className="ml-auto text-[12px] text-muted-foreground">exp − iat</span>
             </div>
           )}
         </div>
