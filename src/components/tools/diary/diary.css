@@ -1,0 +1,27 @@
+/* 设计稿「那年今日 · 日记」的配色与字体，只作用于日记页面 */
+.diary {
+  --d-bg: #f3f4f1;
+  --d-card: #ffffff;
+  --d-ink: #1b1e1c;
+  --d-muted: #5a605c;
+  --d-faint: #8a908b;
+  --d-line: #d9dcd6;
+  --d-line-soft: #e6e8e3;
+  --d-red: #c2301c;
+  background: var(--d-bg);
+  color: var(--d-ink);
+  font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+.diary-serif {
+  font-family: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+}
+
+.diary-photo-placeholder {
+  background: repeating-linear-gradient(135deg, #e6e8e3 0 8px, #eef0ec 8px 16px);
+}
+
+.diary :focus-visible {
+  outline: 2px solid var(--d-red);
+  outline-offset: 2px;
+}

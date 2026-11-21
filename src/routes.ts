@@ -13,6 +13,9 @@ import BookmarksTool from "./components/tools/BookmarksTool";
 import ClipboardTool from "./components/tools/ClipboardTool";
 import DiffTool from "./components/tools/DiffTool";
 import TranscriptTool from "./components/tools/transcript/TranscriptTool";
+import DiaryToday from "./components/tools/diary/DiaryToday";
+import DiaryOnThisDay from "./components/tools/diary/DiaryOnThisDay";
+import DiaryCalendar from "./components/tools/diary/DiaryCalendar";
 import LoginPage from "./components/LoginPage";
 
 import { ClipboardRedirect } from "./components/ClipboardRedirect";
@@ -27,6 +30,9 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true, Component: ClipboardTool },
+      { path: "diary", Component: DiaryToday },
+      { path: "diary/on-this-day", Component: DiaryOnThisDay },
+      { path: "diary/calendar", Component: DiaryCalendar },
       { path: "case-converter", Component: CaseConverterTool },
       { path: "clipboard", Component: ClipboardRedirect },
       { path: "timestamp", Component: TimestampTool },

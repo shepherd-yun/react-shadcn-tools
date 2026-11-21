@@ -1,12 +1,13 @@
 import { Outlet, NavLink, Link } from "react-router";
 import {
-  Clock, FileCode, Braces, Link as LinkIcon, Hash, KeyRound, CaseSensitive, Calendar, Globe, Menu, Wrench, QrCode, Clipboard, GitCompareArrows, AudioLines,
+  Clock, FileCode, Braces, Link as LinkIcon, Hash, KeyRound, CaseSensitive, Calendar, Globe, Menu, Wrench, QrCode, Clipboard, GitCompareArrows, AudioLines, NotebookPen,
 } from "lucide-react";
 import { useState } from "react";
 import { UserAvatar } from "./UserAvatar";
 
 const navItems = [
   { to: "/", icon: Clipboard, label: "网络粘贴板", end: true },
+  { to: "/diary", icon: NotebookPen, label: "日记" },
   { to: "/case-converter", icon: CaseSensitive, label: "命名转换" },
   { to: "/timestamp", icon: Clock, label: "时间戳转换" },
   { to: "/jwt", icon: KeyRound, label: "JWT 解析" },
